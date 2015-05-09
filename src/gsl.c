@@ -60,7 +60,8 @@ static void prepare_xml_file              (char *filename);
 static int
     feedback,
     next_arg,
-    gsl_argc;
+    gsl_argc,
+    is_stdin;
 
 static char
     **gsl_argv,
@@ -195,6 +196,22 @@ main (int _argc, char *_argv [])
                              2, & root, & source);
                 XML_item_class. destroy (source. item);
                 xml_source = NULL;
+              }
+            else if (is_stdin)
+              {
+                char
+                    *line = NULL;
+                size_t
+                    len   = 0;
+                THREAD
+                    *gthr = gsl_start(thread-> queue, 0, switches, 1, & root);
+                while (getline(&line, &len, stdin) >= 0) {
+                    RESULT_NODE *new_node = new_result_node();
+                    gsl_evaluate(gthr, line, 0, &new_node, thread-> queue);
+                    destroy_result(new_node);
+                }
+                gsl_finish(gthr);
+                break;
               }
             else
                 gsl_execute (thread-> queue, 0, switches,
@@ -354,6 +371,12 @@ static void read_xml_or_gsl_file (void)
             prepare_xml_file (filename);
             return;
           }
+      }
+    if (strcmp (filename, "/dev/stdin") == 0)
+      {
+        is_stdin = 1;
+        prepare_gsl_file ("/dev/stdin");
+        return;
       }
     rc = xml_seems_to_be (PATH, filename);
     if (rc == XML_NOERROR)
